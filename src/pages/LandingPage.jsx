@@ -119,7 +119,11 @@ const LandingPage = () => {
                   </div>
                 </div>
                 <h3 className="text-xl font-semibold mb-2">{event.title}</h3>
-                <p className="text-gray-600 mb-4">{event.description}</p>
+                <p className="text-gray-600 mb-4">
+                  {event.description.length > 250 
+                    ? `${event.description.substring(0, 250)}...` 
+                    : event.description}
+                </p>
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-navy-500">
                     <CalendarIcon className="h-4 w-4 mr-2" />
