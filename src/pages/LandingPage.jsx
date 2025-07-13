@@ -10,8 +10,8 @@ import {
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import BgRunningForest from '../assets/bg-running-forest-2-black.jpg';
-import BgSponsor1 from '../assets/sponsor1.png';
-import BgSponsor2 from '../assets/sponsor2.png';
+import BgSponsor1 from '../assets/sponsor1.jpeg';
+import BgSponsor2 from '../assets/sponsor2.jpeg';
 
 
 const LandingPage = () => {
