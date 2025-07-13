@@ -10,6 +10,9 @@ import {
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import BgRunningForest from '../assets/bg-running-forest-2-black.jpg';
+import BgSponsor1 from '../assets/sponsor1.png';
+import BgSponsor2 from '../assets/sponsor2.png';
+
 
 const LandingPage = () => {
   const { events } = useEvent();
@@ -220,6 +223,42 @@ const LandingPage = () => {
                   <div className="text-3xl font-bold">1000+</div>
                   <div className="text-sm">Happy Runners</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sponsor Section */}
+      <section className="py-20 bg-navy-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-navy-900 mb-4">
+              Sponsor Kami
+            </h2>
+            <p className="text-xl text-navy-600 max-w-2xl mx-auto">
+              Didukung oleh brand-brand terpercaya yang berkomitmen untuk mendukung komunitas trail running
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="text-center">
+              <div className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <img 
+                  src={BgSponsor1}
+                  alt="Sponsor 1"
+                  className="w-full max-w-xs mx-auto object-contain"
+                />
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <img 
+                  src={BgSponsor2}
+                  alt="Sponsor 2"
+                  className="w-full max-w-xs mx-auto object-contain"
+                />
               </div>
             </div>
           </div>
