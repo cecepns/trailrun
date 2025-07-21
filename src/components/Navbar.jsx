@@ -20,7 +20,7 @@ const Navbar = () => {
         <div className="flex justify-between p-4">
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
-              <img src={Logo} alt="Logo" className="h-full w-14" />
+              <img src={Logo} alt="Logo" className="h-full w-24" />
             </Link>
           </div>
 
