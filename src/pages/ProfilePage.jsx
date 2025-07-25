@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -11,7 +11,8 @@ import {
   MapPinIcon,
   CheckCircleIcon,
   ClockIcon,
-  XCircleIcon
+  XCircleIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 
 const ProfilePage = () => {
@@ -21,6 +22,8 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState(location.state?.message || '');
+  const [editingShirtSize, setEditingShirtSize] = useState(null);
+  const [shirtSize, setShirtSize] = useState('');
 
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -39,6 +42,10 @@ const ProfilePage = () => {
         console.log('Making request to /api/registrations/user');
         const response = await axios.get('https://api-inventory.isavralabel.com/api/trailrun/registrations/user');
         console.log('Response received:', response.data);
+        console.log('Registrations with ukuranBaju:', response.data.map(reg => ({
+          id: reg.id,
+          ukuranBaju: reg.ukuranBaju
+        })));
         setRegistrations(response.data);
         setError(''); // Clear any previous errors
       } catch (error) {
@@ -96,6 +103,63 @@ const ProfilePage = () => {
       default:
         return 'Pending';
     }
+  };
+
+  const handleShirtSizeUpdate = async (registrationId) => {
+    try {
+      console.log('Updating shirt size for registration:', registrationId, 'with size:', shirtSize);
+      
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await axios.put(`https://api-inventory.isavralabel.com/api/trailrun/registrations/${registrationId}/shirt-size`, {
+        ukuranBaju: shirtSize
+      });
+      
+      console.log('API response:', response.data);
+      
+      // Update local state
+      setRegistrations(prev => {
+        const updated = prev.map(reg => 
+          reg.id === registrationId 
+            ? { ...reg, ukuranBaju: shirtSize }
+            : reg
+        );
+        console.log('Updated registrations state:', updated);
+        return updated;
+      });
+      
+      setEditingShirtSize(null);
+      setShirtSize('');
+      setMessage('Ukuran baju berhasil diperbarui');
+    } catch (error) {
+      console.error('Error updating shirt size:', error);
+      setError('Gagal memperbarui ukuran baju. Silakan coba lagi.');
+    }
+  };
+
+  const handleWhatsAppContact = (registration) => {
+    const message = `Halo Admin KebonKito TrailRun,
+
+Saya ingin mengkonfirmasi pembayaran untuk registrasi event:
+
+Nama: ${user.name}
+Email: ${user.email}
+Ukuran Baju: ${registration.ukuranBaju || 'Belum diisi'}
+Bank Pengirim: 
+Nama Pengirim: 
+Bukti Transfer: 
+
+Event: ${registration.event.title}
+Tanggal: ${new Date(registration.event.date).toLocaleDateString('id-ID')}
+Harga: ${formatRupiah(registration.event.price)}
+
+Mohon konfirmasi pembayaran saya. Terima kasih.`;
+
+    const whatsappUrl = `https://wa.me/62895619804666?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   if (loading) {
@@ -202,7 +266,7 @@ const ProfilePage = () => {
                       </div>
                       
                       <div className="mt-3 pt-3 border-t">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-gray-500">
                             Terdaftar pada {new Date(registration.createdAt).toLocaleDateString('id-ID')}
                           </span>
@@ -211,6 +275,72 @@ const ProfilePage = () => {
                               Siap mengikuti event!
                             </span>
                           )}
+                        </div>
+                        
+                        {/* Shirt Size Section */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">Ukuran Baju:</span>
+                            {editingShirtSize === registration.id ? (
+                              <div className="flex items-center space-x-2">
+                                <select
+                                  value={shirtSize}
+                                  onChange={(e) => setShirtSize(e.target.value)}
+                                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                                >
+                                  <option value="">Pilih ukuran</option>
+                                  <option value="XS">XS</option>
+                                  <option value="S">S</option>
+                                  <option value="M">M</option>
+                                  <option value="L">L</option>
+                                  <option value="XL">XL</option>
+                                  <option value="XXL">XXL</option>
+                                </select>
+                                <button
+                                  onClick={() => handleShirtSizeUpdate(registration.id)}
+                                  className="text-xs bg-primary-600 text-white px-2 py-1 rounded hover:bg-primary-700"
+                                >
+                                  Simpan
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingShirtSize(null);
+                                    setShirtSize('');
+                                  }}
+                                  className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-600">
+                                  {registration.ukuranBaju || 'Belum diisi'}
+                                  {console.log('Rendering ukuranBaju for registration', registration.id, ':', registration.ukuranBaju)}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingShirtSize(registration.id);
+                                    setShirtSize(registration.ukuranBaju || '');
+                                  }}
+                                  className="text-xs text-primary-600 hover:text-primary-700 underline"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* WhatsApp Contact Button */}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => handleWhatsAppContact(registration)}
+                            className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2" />
+                            Hubungi Admin
+                          </button>
                         </div>
                       </div>
                     </div>

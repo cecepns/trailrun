@@ -54,6 +54,7 @@ CREATE TABLE registrations (
     event_id INT NOT NULL,
     payment_method_id INT,
     payment_status ENUM('pending', 'confirmed', 'cancelled') DEFAULT 'pending',
+    ukuran_baju VARCHAR(10),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

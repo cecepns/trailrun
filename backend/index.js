@@ -269,6 +269,7 @@ app.post("/api/trailrun/events/:id/register", authenticateToken, async (req, res
   try {
     const eventId = req.params.id;
     const userId = req.user.id;
+    const { ukuranBaju } = req.body;
 
     // Check if event exists
     const [events] = await dbTrailRun.execute("SELECT * FROM events WHERE id = ?", [
@@ -302,10 +303,10 @@ app.post("/api/trailrun/events/:id/register", authenticateToken, async (req, res
       return res.status(400).json({ message: "Event is full" });
     }
 
-    // Create registration
+    // Create registration with shirt size
     const [result] = await dbTrailRun.execute(
-      'INSERT INTO registrations (event_id, user_id, payment_status) VALUES (?, ?, "pending")',
-      [eventId, userId]
+      'INSERT INTO registrations (event_id, user_id, payment_status, ukuran_baju) VALUES (?, ?, "pending", ?)',
+      [eventId, userId, ukuranBaju]
     );
 
     res.status(201).json({
@@ -386,6 +387,7 @@ app.get("/api/trailrun/registrations/user", authenticateToken, async (req, res) 
       id: reg.id,
       paymentStatus: reg.payment_status,
       createdAt: reg.created_at,
+      ukuranBaju: reg.ukuran_baju,
       event: {
         title: reg.title,
         description: reg.description,
@@ -429,6 +431,7 @@ app.get("/api/trailrun/registrations/:id", authenticateToken, async (req, res) =
       id: registration.id,
       paymentStatus: registration.payment_status,
       createdAt: registration.created_at,
+      ukuranBaju: registration.ukuran_baju,
       event: {
         title: registration.title,
         description: registration.description,
@@ -462,6 +465,27 @@ app.post(
       res.json({ message: "Payment confirmation submitted" });
     } catch (error) {
       console.error("Payment error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.put(
+  "/api/trailrun/registrations/:id/shirt-size",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ukuranBaju } = req.body;
+
+      // Update shirt size
+      await dbTrailRun.execute(
+        "UPDATE registrations SET ukuran_baju = ? WHERE id = ? AND user_id = ?",
+        [ukuranBaju, req.params.id, req.user.id]
+      );
+
+      res.json({ message: "Shirt size updated successfully" });
+    } catch (error) {
+      console.error("Update shirt size error:", error);
       res.status(500).json({ message: "Server error" });
     }
   }
@@ -697,21 +721,62 @@ app.get(
   requireAdmin,
   async (req, res) => {
     try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = (page - 1) * limit;
+      const search = req.query.search || '';
+      const status = req.query.status || '';
+
+      // Build WHERE clause
+      let whereClause = '';
+      let params = [];
+      
+      if (search) {
+        whereClause += 'WHERE (u.name LIKE ? OR u.email LIKE ? OR e.title LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      }
+      
+      if (status && status !== 'all') {
+        if (whereClause) {
+          whereClause += ' AND r.payment_status = ?';
+        } else {
+          whereClause += 'WHERE r.payment_status = ?';
+        }
+        params.push(status);
+      }
+
+      // Get total count
+      const [countResult] = await dbTrailRun.execute(`
+        SELECT COUNT(*) as total
+        FROM registrations r
+        JOIN users u ON r.user_id = u.id
+        JOIN events e ON r.event_id = e.id
+        ${whereClause}
+      `, params);
+
+      const totalPayments = countResult[0].total;
+      const totalPages = Math.ceil(totalPayments / limit);
+
+      // Get payments with pagination
       const [payments] = await dbTrailRun.execute(`
-      SELECT r.*, u.name as user_name, u.email as user_email, e.title as event_title, e.price as event_price
-      FROM registrations r
-      JOIN users u ON r.user_id = u.id
-      JOIN events e ON r.event_id = e.id
-      ORDER BY r.created_at DESC
-    `);
+        SELECT r.*, u.name as user_name, u.email as user_email, u.phone as user_phone, e.title as event_title, e.price as event_price
+        FROM registrations r
+        JOIN users u ON r.user_id = u.id
+        JOIN events e ON r.event_id = e.id
+        ${whereClause}
+        ORDER BY r.created_at DESC
+        LIMIT ? OFFSET ?
+      `, [...params, limit, offset]);
 
       const formattedPayments = payments.map((payment) => ({
         id: payment.id,
         paymentStatus: payment.payment_status,
         createdAt: payment.created_at,
+        ukuranBaju: payment.ukuran_baju,
         user: {
           name: payment.user_name,
           email: payment.user_email,
+          phone: payment.user_phone,
         },
         event: {
           title: payment.event_title,
@@ -719,7 +784,17 @@ app.get(
         },
       }));
 
-      res.json(formattedPayments);
+      res.json({
+        payments: formattedPayments,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalPayments,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
+      });
     } catch (error) {
       console.error("Get admin payments error:", error);
       res.status(500).json({ message: "Server error" });
@@ -936,15 +1011,62 @@ app.get(
   requireAdmin,
   async (req, res) => {
     try {
-      const [users] = await dbTrailRun.execute(`
-      SELECT u.*, COUNT(r.id) as registrationCount
-      FROM users u
-      LEFT JOIN registrations r ON u.id = r.user_id
-      GROUP BY u.id
-      ORDER BY u.created_at DESC
-    `);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+      const search = req.query.search || '';
+      const role = req.query.role || '';
 
-      res.json(users);
+      // Build WHERE clause
+      let whereClause = '';
+      let params = [];
+      
+      if (search) {
+        whereClause += 'WHERE (u.name LIKE ? OR u.email LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
+      
+      if (role && role !== 'all') {
+        if (whereClause) {
+          whereClause += ' AND u.role = ?';
+        } else {
+          whereClause += 'WHERE u.role = ?';
+        }
+        params.push(role);
+      }
+
+      // Get total count
+      const [countResult] = await dbTrailRun.execute(`
+        SELECT COUNT(*) as total
+        FROM users u
+        ${whereClause}
+      `, params);
+
+      const totalUsers = countResult[0].total;
+      const totalPages = Math.ceil(totalUsers / limit);
+
+      // Get users with pagination
+      const [users] = await dbTrailRun.execute(`
+        SELECT u.*, COUNT(r.id) as registrationCount
+        FROM users u
+        LEFT JOIN registrations r ON u.id = r.user_id
+        ${whereClause}
+        GROUP BY u.id
+        ORDER BY u.created_at DESC
+        LIMIT ? OFFSET ?
+      `, [...params, limit, offset]);
+
+      res.json({
+        users,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalUsers,
+          limit,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
+      });
     } catch (error) {
       console.error("Get admin users error:", error);
       res.status(500).json({ message: "Server error" });
@@ -968,6 +1090,34 @@ app.put(
       res.json({ message: "User role updated successfully" });
     } catch (error) {
       console.error("Update user role error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+app.put(
+  "/api/trailrun/admin/users/:id/password",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { password } = req.body;
+
+      if (!password || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters long" });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      await dbTrailRun.execute("UPDATE users SET password = ? WHERE id = ?", [
+        hashedPassword,
+        req.params.id,
+      ]);
+
+      res.json({ message: "User password updated successfully" });
+    } catch (error) {
+      console.error("Update user password error:", error);
       res.status(500).json({ message: "Server error" });
     }
   }

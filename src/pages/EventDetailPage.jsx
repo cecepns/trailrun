@@ -22,6 +22,8 @@ const EventDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [error, setError] = useState('');
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [ukuranBaju, setUkuranBaju] = useState('');
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -39,15 +41,27 @@ const EventDetailPage = () => {
       return;
     }
 
+    setShowRegistrationModal(true);
+  };
+
+  const handleRegistrationSubmit = async () => {
+    if (!ukuranBaju) {
+      setError('Silakan pilih ukuran baju');
+      return;
+    }
+
     setRegistering(true);
     setError('');
 
     const result = await registerForEvent(id, {
       eventId: id,
-      userId: user.id
+      userId: user.id,
+      ukuranBaju
     });
 
     if (result.success) {
+      setShowRegistrationModal(false);
+      setUkuranBaju('');
       navigate(`/payment/${result.data.id}`);
     } else {
       setError(result.error);
@@ -258,6 +272,78 @@ const EventDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Registration Modal */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">Konfirmasi Registrasi</h2>
+              
+              <div className="mb-4">
+                <p className="text-gray-600 mb-2">Event: <span className="font-semibold">{event.title}</span></p>
+                <p className="text-gray-600 mb-4">Harga: <span className="font-semibold">{formatRupiah(event.price)}</span></p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pilih Ukuran Baju *
+                </label>
+                <select
+                  value={ukuranBaju}
+                  onChange={(e) => setUkuranBaju(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Pilih ukuran baju</option>
+                  <option value="XS">XS</option>
+                  <option value="S">S</option>
+                  <option value="M">M</option>
+                  <option value="L">L</option>
+                  <option value="XL">XL</option>
+                  <option value="XXL">XXL</option>
+                </select>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowRegistrationModal(false);
+                    setUkuranBaju('');
+                    setError('');
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleRegistrationSubmit}
+                  disabled={registering}
+                  className="btn-primary px-4 py-2"
+                >
+                  {registering ? (
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Mendaftar...
+                    </div>
+                  ) : (
+                    'Daftar Sekarang'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

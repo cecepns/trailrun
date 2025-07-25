@@ -5,7 +5,12 @@ import {
   CheckCircleIcon, 
   XCircleIcon, 
   EyeIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  MagnifyingGlassIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PhoneIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 
 const AdminPayments = () => {
@@ -22,18 +27,54 @@ const AdminPayments = () => {
     accountName: '',
     qrCode: ''
   });
+  
+  // Pagination and search state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPayments, setTotalPayments] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
   useEffect(() => {
-    fetchPayments();
     fetchPaymentMethods();
   }, []);
 
+  useEffect(() => {
+    fetchPayments();
+  }, [currentPage, searchTerm, statusFilter]);
 
+  // Debounced search effect
+  useEffect(() => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      setCurrentPage(1); // Reset to first page when searching
+    }, 500);
+    
+    setSearchTimeout(timeout);
+    
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [searchTerm, statusFilter]);
 
   const fetchPayments = async () => {
     try {
-      const response = await axios.get('https://api-inventory.isavralabel.com/api/trailrun/admin/payments');
-      setPayments(response.data);
+      setLoading(true);
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: 20,
+        search: searchTerm,
+        status: statusFilter
+      });
+      
+      const response = await axios.get(`https://api-inventory.isavralabel.com/api/trailrun/admin/payments?${params}`);
+      setPayments(response.data.payments);
+      setTotalPages(response.data.pagination.totalPages);
+      setTotalPayments(response.data.pagination.totalPayments);
     } catch (error) {
       console.error('Error fetching payments:', error);
     } finally {
@@ -126,6 +167,12 @@ const AdminPayments = () => {
       default:
         return 'text-gray-600 bg-gray-50';
     }
+  };
+
+  const handleWhatsAppContact = (phoneNumber, userName) => {
+    const message = `Halo ${userName}, saya dari admin KebonKito TrailRun ingin menghubungi Anda terkait pembayaran event.`;
+    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   if (loading) {
@@ -284,7 +331,39 @@ const AdminPayments = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Payment Requests */}
           <div className="card">
-            <h2 className="text-xl font-bold mb-4">Permintaan Pembayaran</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Permintaan Pembayaran</h2>
+              <div className="text-sm text-gray-600">
+                Total: {totalPayments} pembayaran
+              </div>
+            </div>
+            
+            {/* Search and Filter */}
+            <div className="mb-6 space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama, email, atau event..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+            
             <div className="space-y-4">
               {payments.map((payment) => (
                 <div key={payment.id} className="border rounded-lg p-4">
@@ -293,6 +372,18 @@ const AdminPayments = () => {
                       <h3 className="font-semibold text-gray-900">{payment.user.name}</h3>
                       <p className="text-sm text-gray-600">{payment.event.title}</p>
                       <p className="text-sm text-gray-500">{payment.user.email}</p>
+                      {payment.user.phone && (
+                        <div className="flex items-center mt-1">
+                          <PhoneIcon className="h-4 w-4 text-gray-400 mr-1" />
+                          <span className="text-sm text-gray-500">{payment.user.phone}</span>
+                          <button
+                            onClick={() => handleWhatsAppContact(payment.user.phone, payment.user.name)}
+                            className="ml-2 bg-green-500 text-white rounded-md px-2 py-1 text-sm font-medium"
+                          >
+                            Hubungi WhatsApp
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.paymentStatus)}`}>
                       {payment.paymentStatus}
@@ -306,6 +397,23 @@ const AdminPayments = () => {
                     <span className="text-sm text-gray-500">
                       {new Date(payment.createdAt).toLocaleDateString('id-ID')}
                     </span>
+                  </div>
+                  
+                  {/* Shirt Size Display */}
+                  <div className="mb-3">
+                    <div className="flex items-center">
+                      <UserIcon className="h-4 w-4 text-gray-400 mr-1" />
+                      <span className="text-sm font-medium text-gray-700 mr-2">Ukuran Baju:</span>
+                      <span className="text-sm text-gray-600">
+                        {payment.ukuranBaju ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {payment.ukuranBaju}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 italic">Belum diisi</span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                   
                   {payment.paymentStatus === 'pending' && (
@@ -332,6 +440,33 @@ const AdminPayments = () => {
               {payments.length === 0 && (
                 <div className="text-center py-8">
                   <div className="text-gray-500 text-lg">Tidak ada permintaan pembayaran</div>
+                </div>
+              )}
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600">
+                    Halaman {currentPage} dari {totalPages}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                      Sebelumnya
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Selanjutnya
+                      <ChevronRightIcon className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

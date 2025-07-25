@@ -100,6 +100,12 @@ const LoginPage = () => {
               </div>
             </div>
 
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-500">
+                Lupa password?
+              </Link>
+            </div>
+
             <div>
               <button
                 type="submit"
